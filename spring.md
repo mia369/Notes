@@ -1088,9 +1088,10 @@ Spring框架对JDBC进行封装, 使用JdbcTemplate实现对数据库的操作.
 
 #### 查询返回某个值
 
-由jdbcTemplate调用queryForObject方法实现.
+在dao实现类中, 由jdbcTemplate调用queryForObject方法实现. 该方法有2个参数: 
 
-在dao实现类中, 调用JdbcTemplate对象的queryForObject方法完成查询值的操作. 该方法有两个参数: sql语句和需要返回的类型. 
+1. sql语句.
+2. 需要返回的类型. 
 
 以查询表中的总条目为例.
 
@@ -1114,9 +1115,7 @@ public class BookDaoImpl implements BookDao {
 
 #### 查询返回对象
 
-由jdbcTemplate调用queryForObject方法实现.
-
-在dao实现类中, 调用JdbcTemplate对象的queryForObject方法完成查询值的操作. 该方法有3个参数: 
+在dao实现类中, 由jdbcTemplate调用queryForObject方法实现. 该方法有3个参数: 
 
 1. sql语句.
 2. 接口RowMapper的实现类实例, 该接口的实现类能够封装对象. 如BeanPropertyRowMapper, 使用格式: BeanPropertyRowMapper<返回对象的名称> (返回对象的类).
@@ -1137,23 +1136,276 @@ public Book selectOne(Integer id) {
 
 #### 查询返回集合
 
+在dao实现类中, 由jdbcTemplate调用query方法实现. 该方法有2个参数: 
+
+1. sql语句.
+2. 接口RowMapper的实现类实例, 该接口的实现类能够封装对象. 如BeanPropertyRowMapper, 使用格式: BeanPropertyRowMapper<返回对象的名称> (返回对象的类).
+
+以查询表中的所有数据为例.
+
+````java
+@Override
+public List<Book> selectAll() {
+    String sql = "select * from tb_book;";
+    List<Book> books = jdbcTemplate.query(sql, new BeanPropertyRowMapper<Book>(Book.class));
+    return books;
+}
+````
+
+
+
+#### 批量增删改操作
+
+操作表中多条记录. 在dao实现类中, 由jdbcTemplate调用batchUpdate方法实现.
+该方法有2个参数: 
+
+1. sql语句.
+2. 装有Object数组的List集合, 每条数据都被封装到一个Object数组, 通过集合对多条数据进行操作.
+
+````java
+//添加多条数据
+@Repository
+public class BookDaoImpl implements BookDao {
+    //注入jdbcTemplate对象, 已在配置文件中创建
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+    @Override
+    public int[] addBatch(List<Object[]> batchArgs) {
+        String sql = "insert into tb_book values(?,?,?);";
+        int[] arr = jdbcTemplate.batchUpdate(sql,batchArgs);
+        return arr;
+    }
+}
+
+public class TestJdbc01 {
+    @Test
+    public void testJdbcTemplate7() {
+        ApplicationContext context = new ClassPathXmlApplicationContext("bean1.xml");
+        BookService bookService = context.getBean("bookService", BookService.class);
+        Object[] book1 = {"9", "水浒传", "借出"};
+        Object[] book2 = {"10", "西游记", "借出"};
+        Object[] book3 = {"11", "聊斋志异", "借出"};
+        List<Object[]> args = new ArrayList<>();
+        args.add(book1);
+        args.add(book2);
+        args.add(book3);
+        int[] arr = bookService.addBatch(args);
+        System.out.println(Arrays.toString(arr));
+    }
+}
+````
+
 
 
 ----
 
 ## 事务管理
 
+事务是数据库操作的最基本单元. 逻辑上, 一组操作要么成功, 如果有一个步骤失败, 则整组操作都失败. 
+事务的四个特性(ACID): 原子性, 一致性, 隔离性, 持久性.
 
+事务添加到JavaEE三次结构中的Service层(业务逻辑层).
+事务管理操作的2种方式: 声明式事务管理(常用), 编程式事务管理(冗余, 不便于修改).
 
+### 声明式事务管理(AOP原理)
 
+2种方式: 基于注解(常用), 基于xml配置文件.
 
+#### Spring事务管理API简介
 
+提供PlatformTransactionManager接口(事务管理器), 该接口针对不同框架提供不同的实现类.
+
+![image-20211211203840023](C:\Users\admin2\AppData\Roaming\Typora\typora-user-images\image-20211211203840023.png)
+
+#### 注解声明式事务管理
+
+##### 基本步骤
+
+1. 在Spring配置文件中创建事务管理器, 注入数据源.
+
+   ````xml
+   <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+       <property name="dataSource" ref="dataSource"></property>
+   </bean>
+   ````
+
+2. 开启事务注解.
+
+   ````xml
+   <!-- 2.1 Spring配置文件中引入名称空间tx -->
+   <beans xmlns="http://www.springframework.org/schema/beans"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xmlns:context="http://www.springframework.org/schema/context"
+          xmlns:aop="http://www.springframework.org/schema/aop"
+          xmlns:tx="http://www.springframework.org/schema/tx"
+          xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd 
+          http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd 
+          http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd 
+          http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+       
+   <!-- 2.2 开启事务注解, 配置事务管理器 -->
+   <tx:annotation-driven transaction-manager="transactionManager"></tx:annotation-driven>
+   ````
+
+3. 添加事务注解@Transactional.
+
+   - 为Service类中的1个方法添加事务: 在该方法上方添加注解.
+   - 为Service类中的所有方法添加事务: 在Service类上方添加注解.
+
+   ````java
+   @Service
+   @Transactional
+   public class UserService {}
+   ````
+
+##### 参数配置
+
+在Service类上方添加的@Transactional注解中, 可以配置事务相关参数:
+
+1. propagation: 
+
+   [事务传播行为]: https://blog.csdn.net/soonfly/article/details/70305683
+
+   多事务方法被直接调用过程中, 事务的管理方式. 事务方法: 使数据库中的数据发生变化的操作(增删改).
+   ![这里写图片描述](https://img-blog.csdn.net/20170420212829825?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc29vbmZseQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+2. isolation: 事务隔离级别. 
+   
+
+3. timeout: 超过时间. 
+
+4. readOnly: 是否只读. 
+
+5. rollbackFor: 回滚. 
+
+6. noRollbackFor: 不回滚. 
+
+#### xml配置文件声明式事务管理
 
 ----
 
 ## Spring5新特性
 
 
+
+----
+
+## 依赖汇总
+
+````xml
+<dependencies>
+    <!-- https://mvnrepository.com/artifact/junit/junit -->
+    <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.12</version>
+        <scope>test</scope>
+    </dependency>
+    
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-beans -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-beans</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-context -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-core -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-core</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-expression -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-expression</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/commons-logging/commons-logging -->
+    <dependency>
+        <groupId>commons-logging</groupId>
+        <artifactId>commons-logging</artifactId>
+        <version>1.2</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-aop</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+    <dependency>
+        <groupId>cglib</groupId>
+        <artifactId>cglib</artifactId>
+        <version>3.3.0</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-aspects -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-aspects</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjweaver -->
+    <dependency>
+        <groupId>org.aspectj</groupId>
+        <artifactId>aspectjweaver</artifactId>
+        <version>1.9.7</version>
+        <scope>runtime</scope>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.aspectj/aspectjrt -->
+    <dependency>
+        <groupId>org.aspectj</groupId>
+        <artifactId>aspectjrt</artifactId>
+        <version>1.9.7</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-test -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-test</artifactId>
+        <version>5.3.13</version>
+        <scope>test</scope>
+    </dependency>
+
+    <!-- 操作数据库 -->
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid</artifactId>
+        <version>1.1.10</version>
+    </dependency>
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>8.0.27</version>
+    </dependency>
+    <!-- 对jdbc的封装https://mvnrepository.com/artifact/org.springframework/spring-jdbc -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-jdbc</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+    <!-- 针对事务操作https://mvnrepository.com/artifact/org.springframework/spring-tx -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-tx</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+    <!-- 用于整合其他框架https://mvnrepository.com/artifact/org.springframework/spring-orm -->
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-orm</artifactId>
+        <version>5.3.13</version>
+    </dependency>
+
+</dependencies>
+````
 
 
 
