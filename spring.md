@@ -935,7 +935,7 @@ Spring框架一般基于AspectJ实现AOP操作. AspectJ不是Spring组成部分,
        <aop:pointcut id="pointcutDemo" expression="execution(* com.ht.spring5.aop.xmlconfig.Book.buy(..))"/>
        <!--  配置切面  -->
        <aop:aspect ref="bookProxy">
-           <!--  增强作用到具体方法  -->
+           <!--  使增强作用到具体方法  -->
            <aop:before method="before" pointcut-ref="pointcutDemo"/>
        </aop:aspect>
    </aop:config>
@@ -1269,24 +1269,300 @@ public class TestJdbc01 {
    多事务方法被直接调用过程中, 事务的管理方式. 事务方法: 使数据库中的数据发生变化的操作(增删改).
    ![这里写图片描述](https://img-blog.csdn.net/20170420212829825?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc29vbmZseQ==/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
 
-2. isolation: 事务隔离级别. 
+2. isolation: 
    
-
+   [事务隔离级别]: https://www.cnblogs.com/xrq730/p/5087378.html
+   
+   并发下事务会产生的问题: 脏读, 不可重复读, 幻读.
+   解决方法: 设置事务隔离级别, mysql默认隔离级别为可重复读.
+   ![image-20211213135952121](C:\Users\admin2\AppData\Roaming\Typora\typora-user-images\image-20211213135952121.png)
+   
+   ````java
+   //用法
+   @Service
+   @Transactional(propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
+   public class UserService {}
+   ````
+   
+   
+   
 3. timeout: 超过时间. 
+   事务需要在一定时间内提交, 超过时间则回滚. spring框架默认值-1, 即不限制时间, 如需设置则以秒为单位.
 
-4. readOnly: 是否只读. 
+4. readOnly: 是否只读/是否只能查询. 
+   默认值false.
 
 5. rollbackFor: 回滚. 
+   设置出现哪些异常就回滚. rollbackFor = 异常类.class
 
 6. noRollbackFor: 不回滚. 
+   设置出现哪些异常不回滚. 
 
 #### xml配置文件声明式事务管理
+
+##### 基本步骤
+
+1. 配置事务管理器.
+2. 配置通知.
+3. 配置切入点和切面.
+
+````xml
+<!--  1. 开启事务管理器, 注入数据源  -->
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <property name="dataSource" ref="dataSource"></property>
+</bean>
+
+<!--  2. 配置通知  -->
+<tx:advice id="txAdvice">
+    <!--  配置事务参数  -->
+    <tx:attributes>
+        <!--  在指定方法上添加事务  -->
+        <tx:method name="transfer" propagation="REQUIRES_NEW"/>
+    </tx:attributes>
+</tx:advice>
+
+<!--  3. 配置切入点和切面  -->
+<aop:config>
+    <aop:pointcut id="pt" expression="execution(* com.ht.service.UserService.*(..))"/>
+    <aop:advisor advice-ref="txAdvice" pointcut-ref="pt"/>
+</aop:config>
+````
+
+
+
+#### 完全注解开发
+
+##### 创建配置类
+
+````java
+@Configuration //配置类
+@ComponentScan(basePackages = "com.ht") //组件扫描
+@EnableTransactionManagement //开启事务
+public class TxConfig {
+    //创建数据库连接池
+    @Bean
+    public DruidDataSource getDruidDataSource() {
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql:///db1");
+        dataSource.setUsername("root");
+        dataSource.setPassword("1234");
+        return dataSource;
+    }
+
+    //创建jdbcTemplate对象, 注入数据源
+    @Bean
+    public JdbcTemplate getJdbcTemplate(DataSource dataSource) {
+        //在IoC容器中根据类型找到dataSource
+        JdbcTemplate jdbcTemplate = new JdbcTemplate();
+        jdbcTemplate.setDataSource(dataSource);
+        return jdbcTemplate;
+    }
+
+    //配置事务管理器
+    @Bean
+    public DataSourceTransactionManager getDataSourceTransactionManager(DataSource dataSource) {
+        DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
+        dataSourceTransactionManager.setDataSource(dataSource);
+        return dataSourceTransactionManager;
+    }
+}
+
+//测试类
+public class TestAccount {
+    @Test
+    public void testTransfer3(){
+        ApplicationContext context = new AnnotationConfigApplicationContext(TxConfig.class);
+        UserService userService = context.getBean("userService", UserService.class);
+        userService.transfer(500,1,2);
+    }
+}
+
+````
+
+
 
 ----
 
 ## Spring5新特性
 
+整个Spring5框架基于Java8, 运行时兼容JDK9, 许多不建议使用的类和方法在代码库中删除.
 
+### 整合日志框架(Log4j)
+
+Spring5自带通用的日志封装, 移除Log4jConfigListener, 官方建议使用Log4j2, 不支持log4j.
+
+#### 所需依赖
+
+````xml
+<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-api</artifactId>
+    <version>2.15.0</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-core</artifactId>
+    <version>2.15.0</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-slf4j-impl -->
+<dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-slf4j-impl</artifactId>
+    <version>2.15.0</version>
+    <scope>test</scope>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+    <version>1.7.30</version>
+</dependency>
+````
+
+#### 配置文件(log4j2.xml)
+
+````xml
+<?xml version="1.0" encoding="utf-8" ?>
+<!--日志级别以及优先顺序: OFF > FATAL > ERROR > WARN > INFO > DEBUG > TRACE > ALL -->
+<!--Configuration中的status用于配置log4j2自身内部的信息输出, 可以不配置-->
+<configuration sttatus="DEBUG">
+<!--1. 定义所有的appender-->
+    <appenders>
+<!--输出日志到控制台-->
+        <console name="Console" target="SYSTEM_OUT">
+<!--控制日志输出格式-->
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </console>
+    </appenders>
+<!--2. 定义logger, 引入appender-->
+    <loggers>
+        <root level="debug">
+            <appender-ref ref="Console"/>
+        </root>
+    </loggers>
+</configuration>
+````
+
+#### 手动日志输出方法
+
+![image-20211213172946959](C:\Users\admin2\AppData\Roaming\Typora\typora-user-images\image-20211213172946959.png)
+
+
+
+### 函数式注册对象
+
+由GenericApplicationContext注册对象, 并交给Spring管理.
+
+````java
+@Test
+public void testGeneric(){
+    GenericApplicationContext context = new GenericApplicationContext();
+    //方式一, 取名
+    //注册对象
+    context.refresh();
+    context.registerBean("user", User.class, () -> new User());
+    //获取对象
+    User user1 = (User) context.getBean("user");
+
+    //方式二, 不取名, 获取时使用全类名
+    context.refresh();
+    context.registerBean(User.class, () -> new User());
+    User user2 = (User) context.getBean("com.ht.dao.User");
+}
+````
+
+
+
+### 整合Junit单元测试框架
+
+#### 所需依赖
+
+````xml
+<!-- https://mvnrepository.com/artifact/org.springframework/spring-test -->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-test</artifactId>
+    <version>5.3.13</version>
+    <scope>test</scope>
+</dependency>
+<!-- JUnit4版本 https://mvnrepository.com/artifact/junit/junit -->
+<dependency>
+    <groupId>junit</groupId>
+    <artifactId>junit</artifactId>
+    <version>4.12</version>
+    <scope>test</scope>
+</dependency>
+<!-- JUnit5版本 https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter-api</artifactId>
+    <version>5.7.0</version>
+    <scope>test</scope>
+</dependency>
+````
+
+#### 整合JUnit4单元测试框架
+
+````java
+import org.junit.Test; //注意: @Test来自此路径
+@RunWith(SpringJUnit4ClassRunner.class) //定义单元测试框架版本
+@ContextConfiguration("classpath:bean1.xml") //加载配置文件
+public class TestAccount1 {
+    @Autowired
+    private UserService service;
+
+    @Test
+    public void test1(){
+        service.transfer(800,1,2);
+    }
+}
+````
+
+#### 整合JUnit5单元测试框架
+
+````java
+import org.junit.jupiter.api.Test; //注意: @Test来自此路径
+//方式一
+@ExtendWith(SpringExtension.class) //定义单元测试框架版本
+@ContextConfiguration("classpath:bean1.xml") //加载配置文件
+//方式二(复合注解 简化)
+@SpringJUnitConfig(locations = "classpath:bean1.xml")
+public class TestAccount2 {
+    @Autowired
+    private UserService service;
+
+    @Test
+    public void test1(){
+        service.transfer(100,1,2);
+    }
+}
+````
+
+
+
+### WebFlux
+
+
+
+#### 响应式编程
+
+
+
+#### 执行流程和核心API
+
+
+
+#### 基于注解编程模型
+
+
+
+#### 基于函数式编程模型
 
 ----
 
@@ -1366,7 +1642,8 @@ public class TestJdbc01 {
         <artifactId>aspectjrt</artifactId>
         <version>1.9.7</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.springframework/spring-test -->
+    
+    <!-- 单元测试框架https://mvnrepository.com/artifact/org.springframework/spring-test -->
     <dependency>
         <groupId>org.springframework</groupId>
         <artifactId>spring-test</artifactId>
@@ -1409,3 +1686,6 @@ public class TestJdbc01 {
 
 
 
+## 开发流程
+
+分析需求-设计-详细设计-编码-调试-单元测试-集成测试-系统测试
