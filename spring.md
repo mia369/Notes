@@ -2,16 +2,18 @@
 
 ## 概述
 
-1. Spring是轻量级的开源的JavaEE框架.
-2. 可以解决企业应用开发的复杂性.
-3. 包含两个核心部分: 
+1. Spring是轻量级的开源的框架.
+2. 可以解决企业应用开发的复杂性, 由Spring帮助开发人员创建对象和管理类之间的依赖关系, 从而减轻开发人员对项目模块之间和类之间的管理负担. 
+3. 核心技术 
    - IoC: 控制反转, 把创建对象过程交由Spring管理.
    - AOP: 面向切面, 不修改源码进行功能增强.
-4. 特点:
-   - 方便解耦, 简化开发(IoC).
-   - AOP编程支持.
+   - 实现模块之间和类之间的解耦.
+4. 优点:
+   - 轻量. 使用的jar包很小, 运行占用资源少, 运行效率高, 不依赖外部jar.
+   - 方便解耦, 简化开发(IoC). 针对接口编程, 通过IoC实现了由容器管理对象和对象之间的依赖关系.
+   - AOP编程支持. 通过声明方式灵活管理事务, 提高开发效率和质量.
+   - 方便和其他框架整合(MyBatis). 提供对其他框架的直接支持, 简化框架使用, 方便集成和移除.
    - 方便程序测试(Junit).
-   - 方便和其他框架整合(MyBatis).
    - 方便事务操作.
    - 降低API开发难度(JDBC).
 
@@ -87,11 +89,25 @@
 
 ----
 
-## IOC容器
+## IOC
 
-控制反转, 把对象创建和对象之间的调用过程交给Spring管理.
+### 概念
 
-使用IoC的目的: 降低耦合度. 上方入门案例就是IoC的实现.
+控制反转是一种思想, 就是将传统上程序代码的对象控制权交给容器, 由容器实现对象的装配和管理. 控制反转就是对象控制权的转移, 从代码本身反转到了容器, 由容器实现对象的创建, 属性赋值, 依赖管理. 把对象创建和对象之间的调用过程交给Spring管理. 
+
+IoC的目的: 降低耦合度, 使对象的管理更松散. 减少对代码的改动, 也能实现不同的功能. 上方入门案例就是IoC的实现.
+
+
+
+### Spring对IoC的实现方式
+
+Spring框架使用依赖注入实现IoC. 
+
+**依赖注入(Dependency Injection)是IoC的一种技术实现,** 指程序运行过程中, 如需调用另一个对象协助时, 无需在代码中创建被调用的对象, 而是依赖外部容器, 由外部容器创建后传递给程序. 即程序代码不做定位查询, 只需要在程序中提供要使用的对象名称, 对象的创建, 赋值和查找均由容器完成.
+
+**Spring容器(框架)是负责创建和管理所有java对象(bean)的超级大工厂.** Spring容器使用依赖注入的方式管理容器中bean之间的依赖关系, 实现对象之间的解耦.
+
+
 
 ### 底层原理
 
@@ -105,10 +121,10 @@
 - IoC思想基于IoC容器, IoC容器底层就是对象工厂.
 - Spring提供IoC容器的2种实现方式(接口):
   1. BeanFactory: IoC容器的基本实现方式, 一般供Spring内部使用. 加载配置文件时不创建对象, 而在获取或使用对象时才创建对象.
-  2. ApplicationContext: BeanFactory接口的子接口, 提供更强大的功能, 一般供开发人员使用. 加载配置文件时就会将其中配置的类实例化.
+  2. ApplicationContext: BeanFactory接口的子接口, 提供更强大的功能, 一般供开发人员使用. 加载配置文件时就会将其中配置的类实例化. 表示Spring容器, 需要先创建该容器(new), 再获取对象(getBean).
 - ApplicationContext接口中的实现类: 
-  1. FileSystemXmlApplicationContext. 使用xml的全路径.
-  2. ClassPathXmlApplicationContext. 使用xml的相对路径.
+  1. FileSystemXmlApplicationContext. 从磁盘中加载Spring配置文件.
+  2. ClassPathXmlApplicationContext. 从类路径中加载Spring配置文件.
      
 
 ### IoC操作Bean管理
@@ -150,9 +166,9 @@
        ````java
        @Test
        public void showTest(){
-           //1.加载spring配置文件
+           //1.从类路径中加载spring配置文件, 默认此时对象被创建
            ApplicationContext context = new ClassPathXmlApplicationContext("/config/bean1.xml");
-           //2.获取配置创建的对象
+           //2.获取配置创建的对象, 参数可以为id, 类, id+类 等
            Book book = context.getBean("book",Book.class);
            System.out.println(book);
            book.show();
@@ -1546,9 +1562,11 @@ public class TestAccount2 {
 
 
 
-### WebFlux
+### WebFlux 
 
+https://www.bilibili.com/video/BV1Vf4y127N5?p=53
 
+需要前置知识: SpringMVC SpringBoot java8新特性
 
 #### 响应式编程
 
