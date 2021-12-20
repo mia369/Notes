@@ -1046,7 +1046,7 @@ Spring框架对JDBC进行封装, 使用JdbcTemplate实现对数据库的操作.
    ````java
    @Repository
    public class BookDaoImpl implements BookDao{
-       //注入jdbcTemplate对象, 已在配置文件中创建
+       //注入jdbcTemplate对象, 已在配置文件中创
        @Autowired
        private JdbcTemplate jdbcTemplate;
    }
