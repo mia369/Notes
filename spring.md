@@ -908,7 +908,7 @@ Spring框架一般基于AspectJ实现AOP操作. AspectJ不是Spring组成部分,
 
    ![image-20211210142613332](C:\Users\admin2\AppData\Roaming\Typora\typora-user-images\image-20211210142613332.png)
 
-5. 抽取相同切入点(表达式), 使用注解@Pointcut, 方法名能够被当初切入点表达式使用.
+5. 抽取相同切入点(表达式), 使用注解@Pointcut, 方法名能够被当成切入点表达式使用.
 
    ````java
    //抽取相同切入点
